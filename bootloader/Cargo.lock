@@ -69,6 +69,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
 
 [[package]]
+name = "bootloader-icd"
+version = "0.1.0"
+dependencies = [
+ "postcard-rpc",
+ "postcard-schema",
+ "serde",
+]
+
+[[package]]
+name = "bootloader-nrf52840"
+version = "0.1.0"
+dependencies = [
+ "bootloader-icd",
+ "cortex-m",
+ "cortex-m-rt",
+ "defmt",
+ "defmt-rtt",
+ "embassy-executor",
+ "embassy-nrf",
+ "embassy-sync",
+ "embassy-time",
+ "embassy-usb",
+ "panic-probe",
+ "portable-atomic",
+ "postcard",
+ "postcard-rpc",
+ "postcard-schema",
+ "static_cell",
+]
+
+[[package]]
 name = "bytemuck"
 version = "1.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -894,37 +925,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "template-icd"
-version = "0.1.0"
-dependencies = [
- "postcard-rpc",
- "postcard-schema",
- "serde",
-]
-
-[[package]]
-name = "template-nrf52840"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "defmt",
- "defmt-rtt",
- "embassy-executor",
- "embassy-nrf",
- "embassy-sync",
- "embassy-time",
- "embassy-usb",
- "panic-probe",
- "portable-atomic",
- "postcard",
- "postcard-rpc",
- "postcard-schema",
- "static_cell",
- "template-icd",
 ]
 
 [[package]]
