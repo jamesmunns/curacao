@@ -91,6 +91,7 @@ dependencies = [
  "embassy-sync",
  "embassy-time",
  "embassy-usb",
+ "embedded-storage",
  "grounded",
  "panic-probe",
  "portable-atomic",

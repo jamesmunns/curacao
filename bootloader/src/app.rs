@@ -1,7 +1,7 @@
 //! A basic postcard-rpc/poststation-compatible application
 
-use crate::handlers::{unique_id, read_flash, get_info};
-use embassy_nrf::{gpio::Output, peripherals::USBD, usb::{self, vbus_detect::HardwareVbusDetect}};
+use crate::handlers::{unique_id, read_flash, get_info, erase_flash, write_flash};
+use embassy_nrf::{gpio::Output, nvmc::Nvmc, peripherals::USBD, usb::{self, vbus_detect::HardwareVbusDetect}};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use postcard_rpc::server::impls::embassy_usb_v0_3::{
     dispatch_impl::{spawn_fn, WireRxBuf, WireRxImpl, WireSpawnImpl, WireStorage, WireTxImpl},
@@ -13,7 +13,7 @@ use postcard_rpc::{
 };
 use static_cell::ConstStaticCell;
 use bootloader_icd::{
-    GetUniqueIdEndpoint, ReadFlashEndpoint, GetAppFlashInfoEndpoint,
+    GetUniqueIdEndpoint, ReadFlashEndpoint, GetAppFlashInfoEndpoint, EraseFlashEndpoint, WriteFlashEndpoint,
 };
 use bootloader_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
 
@@ -25,6 +25,7 @@ pub struct Context {
     pub unique_id: u64,
     pub led: Output<'static>,
     pub buf: &'static mut [u8],
+    pub nvmc: Nvmc<'static>,
 }
 
 impl SpawnContext for Context {
@@ -111,6 +112,8 @@ define_dispatch! {
         | GetUniqueIdEndpoint       | blocking  | unique_id                     |
         | ReadFlashEndpoint         | blocking  | read_flash                    |
         | GetAppFlashInfoEndpoint   | blocking  | get_info                      |
+        | EraseFlashEndpoint        | async     | erase_flash                   |
+        | WriteFlashEndpoint        | blocking  | write_flash                   |
     };
 
     // Topics IN are messages we receive from the client, but that we do not reply

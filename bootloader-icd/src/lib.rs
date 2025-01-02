@@ -9,12 +9,38 @@ pub struct AppPartitionInfo {
     pub start: u32,
     pub len: u32,
     pub transfer_chunk: u32,
+    pub write_sz: u32,
+    pub erase_sz: u32,
+    pub align: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize, Schema)]
 pub struct FlashReadCommand {
     pub start: u32,
     pub len: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct FlashEraseCommand {
+    pub start: u32,
+    pub len: u32,
+    pub force: bool,
+}
+
+#[cfg(not(feature = "use-std"))]
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct FlashWriteCommand<'a> {
+    pub start: u32,
+    pub data: &'a [u8],
+    pub force: bool,
+}
+
+#[cfg(feature = "use-std")]
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct FlashWriteCommand {
+    pub start: u32,
+    pub data: Vec<u8>,
+    pub force: bool,
 }
 
 #[cfg(not(feature = "use-std"))]
@@ -43,11 +69,31 @@ pub enum ReadError {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub enum EraseError {
+    OutOfRange,
+    StartNotAligned,
+    LenNotAligned,
+    HardwareError,
+}
+
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub enum WriteError {
+    OutOfRange,
+    StartNotAligned,
+    LenNotAligned,
+    NeedsErase,
+    HardwareError,
+}
+
 #[cfg(not(feature = "use-std"))]
 pub type ReadResult<'a> = Result<DataChunk<'a>, ReadError>;
 
 #[cfg(feature = "use-std")]
 pub type ReadResult = Result<DataChunk, ReadError>;
+
+pub type EraseResult = Result<(), EraseError>;
+pub type WriteResult = Result<(), WriteError>;
 
 // ---
 
@@ -56,12 +102,15 @@ pub type ReadResult = Result<DataChunk, ReadError>;
 // GetUniqueIdEndpoint is mandatory, the others are examples
 endpoints! {
     list = ENDPOINT_LIST;
-    | EndpointTy                | RequestTy         | ResponseTy        | Path                          | Cfg                           |
-    | ----------                | ---------         | ----------        | ----                          | ---                           |
-    | GetUniqueIdEndpoint       | ()                | u64               | "poststation/unique_id/get"   |                               |
-    | ReadFlashEndpoint         | FlashReadCommand  | ReadResult<'a>    | "bootloader/flash/read"       | cfg(not(feature = "use-std")) |
-    | ReadFlashEndpoint         | FlashReadCommand  | ReadResult        | "bootloader/flash/read"       | cfg(feature = "use-std")      |
-    | GetAppFlashInfoEndpoint   | ()                | AppPartitionInfo  | "bootloader/flash/info"       |                               |
+    | EndpointTy                | RequestTy             | ResponseTy        | Path                          | Cfg                           |
+    | ----------                | ---------             | ----------        | ----                          | ---                           |
+    | GetUniqueIdEndpoint       | ()                    | u64               | "poststation/unique_id/get"   |                               |
+    | ReadFlashEndpoint         | FlashReadCommand      | ReadResult<'a>    | "bootloader/flash/read"       | cfg(not(feature = "use-std")) |
+    | ReadFlashEndpoint         | FlashReadCommand      | ReadResult        | "bootloader/flash/read"       | cfg(feature = "use-std")      |
+    | GetAppFlashInfoEndpoint   | ()                    | AppPartitionInfo  | "bootloader/flash/info"       |                               |
+    | EraseFlashEndpoint        | FlashEraseCommand     | EraseResult       | "bootloader/flash/erase"      |                               |
+    | WriteFlashEndpoint        | FlashWriteCommand<'a> | WriteResult       | "bootloader/flash/write"      | cfg(not(feature = "use-std")) |
+    | WriteFlashEndpoint        | FlashWriteCommand     | WriteResult       | "bootloader/flash/write"      | cfg(feature = "use-std")      |
 }
 
 // incoming topics handled by our device

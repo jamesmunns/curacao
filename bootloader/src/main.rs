@@ -5,12 +5,7 @@ use app::AppTx;
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_nrf::{
-    bind_interrupts,
-    config::{Config as NrfConfig, HfclkSource},
-    gpio::{Level, Output, OutputDrive},
-    pac::FICR,
-    peripherals::USBD,
-    usb::{self, vbus_detect::HardwareVbusDetect},
+    bind_interrupts, config::{Config as NrfConfig, HfclkSource}, gpio::{Level, Output, OutputDrive}, nvmc::Nvmc, pac::FICR, peripherals::USBD, usb::{self, vbus_detect::HardwareVbusDetect}
 };
 use embassy_time::{Duration, Instant, Ticker, Timer};
 use embassy_usb::{Config, UsbDevice};
@@ -86,7 +81,7 @@ async fn main(spawner: Spawner) {
     let led = Output::new(p.P0_13, Level::Low, OutputDrive::Standard);
     static SCRATCH: ConstStaticCell<[u8; 4096]> = ConstStaticCell::new([0u8; 4096]);
 
-    let context = app::Context { unique_id, led, buf: SCRATCH.take() };
+    let context = app::Context { unique_id, led, buf: SCRATCH.take(), nvmc: Nvmc::new(p.NVMC) };
 
     let (device, tx_impl, rx_impl) =
         app::STORAGE.init_poststation(driver, config, pbufs.tx_buf.as_mut_slice());

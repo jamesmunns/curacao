@@ -21,6 +21,7 @@ defmt-rtt               = "0.4"
 static_cell             = "2.1"
 bootloader-icd            = { path = "../bootloader-icd" }
 grounded = { version = "0.2.0", features = ["cas"] }
+embedded-storage = "0.3.1"
 
 [profile.release]
 debug = 2
