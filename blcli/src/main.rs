@@ -1,13 +1,11 @@
 use std::{
-    fmt::Write,
-    fs::{self, File},
-    io::Write as _,
-    num::ParseIntError,
-    sync::atomic::{AtomicU32, Ordering}, time::Instant,
+    fmt::Write, fs::{self, File}, io::{Read, Write as _}, num::ParseIntError, str::from_utf8, sync::atomic::{AtomicU32, Ordering}, time::Instant
 };
 
 use bootloader_icd::{
-    AppPartitionInfo, DataChunk, EraseFlashEndpoint, FlashEraseCommand, FlashReadCommand, FlashWriteCommand, GetAppFlashInfoEndpoint, ReadFlashEndpoint, WriteFlashEndpoint
+    scratch::BootMessage, AppPartitionInfo, BootResult, BootloadEndpoint, DataChunk,
+    EraseFlashEndpoint, FlashEraseCommand, FlashReadCommand, FlashWriteCommand,
+    GetAppFlashInfoEndpoint, GetBootMessageEndpoint, ReadFlashEndpoint, WriteFlashEndpoint,
 };
 use postcard_rpc::Endpoint;
 use poststation_sdk::{connect, SquadClient};
@@ -68,16 +66,28 @@ impl Bootloader {
     async fn write(&self, start: u32, data: &[u8]) -> Result<(), String> {
         for (i, ch) in data.chunks(512).enumerate() {
             let addr = start + (i as u32 * 512);
-            let res = self.proxy_ep::<WriteFlashEndpoint>(&FlashWriteCommand {
-                start: addr,
-                data: ch.to_vec(),
-                force: false,
-            }).await?;
+            let res = self
+                .proxy_ep::<WriteFlashEndpoint>(&FlashWriteCommand {
+                    start: addr,
+                    data: ch.to_vec(),
+                    force: false,
+                })
+                .await?;
             if let Err(e) = res {
                 return Err(format!("Error: '{e:?}'"));
             }
         }
         Ok(())
+    }
+
+    async fn boot_msg(&self) -> Result<Option<BootMessage>, String> {
+        self.proxy_ep::<GetBootMessageEndpoint>(&()).await
+    }
+
+    async fn boot(&self) -> Result<(), String> {
+        self.proxy_ep::<BootloadEndpoint>(&())
+            .await?
+            .map_err(|_| "Err: Failed Sanity Check".into())
     }
 
     async fn dumpfmt(&self, start: u32, len: u32, chunk: u32) -> Result<String, String> {
@@ -214,6 +224,56 @@ async fn main() -> Result<(), String> {
                     Err(e) => println!("{e}"),
                 }
             }
+            ["bootmsg"] => {
+                let Ok(m) = bl.boot_msg().await else {
+                    println!("Error getting boot msg");
+                    continue 'repl;
+                };
+                println!("Boot Message: {m:?}");
+                match m {
+                    Some(BootMessage::AppPanicked { uptime, reason }) => {
+                        println!("App Panicked. ({uptime})");
+                        if let Ok(s) = from_utf8(&reason) {
+                            println!("Reason: {s}");
+                        }
+                    }
+                    Some(BootMessage::BootPanicked { uptime, reason }) => {
+                        println!("Boot Panicked. ({uptime})");
+                        if let Ok(s) = from_utf8(&reason) {
+                            println!("Reason: {s}");
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            ["boot"] => {
+                match bl.boot().await {
+                    Ok(_) => {
+                        println!("Boot accepted. Exiting");
+                        std::process::exit(0);
+                    },
+                    Err(e) => {
+                        println!("{e}");
+                    },
+                }
+            }
+            ["load", path] => {
+                let Ok(mut file) = File::open(path) else {
+                    println!("Error opening file");
+                    continue 'repl;
+                };
+                let mut buf = vec![];
+                let Ok(_) = file.read_to_end(&mut buf) else {
+                    println!("Error reading file");
+                    continue 'repl;
+                };
+                // this is lazy
+                while buf.len() % 4096 != 0 {
+                    buf.push(0xFF);
+                }
+                bl.erase(64 * 1024, buf.len() as u32).await.unwrap();
+                bl.write(64 * 1024, &buf).await.unwrap();
+            }
             ["test"] => {
                 let start = Instant::now();
                 let info = bl.partinfo().await.unwrap();
@@ -237,7 +297,7 @@ async fn main() -> Result<(), String> {
                     addr += 512;
                 }
                 assert_eq!(rback, data);
-                println!("({:?}) Erasing full range", start.elapsed());
+                println!("({:?}) Erasing full range...", start.elapsed());
                 bl.erase(info.start, info.len).await.unwrap();
                 println!("({:?}) Reading back (should be empty)...", start.elapsed());
                 let mut rback = vec![];

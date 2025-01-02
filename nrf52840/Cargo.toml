@@ -1,30 +1,32 @@
 [package]
-name = "bootloader-nrf52840"
+name = "template-nrf52840"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 cortex-m                = { version = "0.7.6", features = ["inline-asm", "critical-section-single-core"] }
-embassy-executor        = { version = "0.6.3", features = ["task-arena-size-32768", "arch-cortex-m", "executor-thread", "executor-interrupt"] }
-embassy-nrf             = { version = "0.2.0", features = ["nrf52840", "time-driver-rtc1", "gpiote", "unstable-pac", "time"] }
-embassy-sync            = { version = "0.6.1", features = [] }
-embassy-time            = { version = "0.3.0", features = [] }
-embassy-usb             = { version = "0.3.0", features = [] }
+embassy-executor        = { version = "0.6.3", features = ["task-arena-size-32768", "arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"] }
+embassy-nrf             = { version = "0.2.0", features = ["defmt", "nrf52840", "time-driver-rtc1", "gpiote", "unstable-pac", "time"] }
+embassy-sync            = { version = "0.6.1", features = ["defmt"] }
+embassy-time            = { version = "0.3.0", features = ["defmt", "defmt-timestamp-uptime"] }
+embassy-usb             = { version = "0.3.0", features = ["defmt"] }
+panic-probe             = { version = "0.3",   features = ["print-defmt"] }
 postcard-rpc            = { version = "0.11.0",   features = ["embassy-usb-0_3-server"] }
 postcard                = { version = "1.1.0" }
 postcard-schema         = { version = "0.2.0", features = ["derive"] }
 portable-atomic         = { version = "1.6.0", features = ["critical-section"] }
-cortex-m-rt             = "0.7.0"
+cortex-m-rt             = { version = "0.7.0", features = ["set-vtor"] }
+defmt                   = "0.3"
+defmt-rtt               = "0.4"
 static_cell             = "2.1"
+template-icd            = { path = "../icd" }
 bootloader-icd          = { path = "../bootloader-icd" }
-grounded                = { version = "0.2.0", features = ["cas"] }
-embedded-storage        = "0.3.1"
-critical-section        = "1.2.0"
+grounded = { version = "0.2.0", features = ["cas"] }
 
 [profile.release]
 debug = 2
 lto = true
-opt-level = 's'
+opt-level = 'z'
 codegen-units = 1
 incremental = false
 

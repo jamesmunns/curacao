@@ -1,22 +1,10 @@
 //! A basic postcard-rpc/poststation-compatible application
 
-use crate::handlers::{
-    erase_flash, get_boot_message, get_info, go_boot, read_flash, unique_id, write_flash,
-};
-use bootloader_icd::{
-    scratch::BootMessage, BootloadEndpoint, EraseFlashEndpoint, GetAppFlashInfoEndpoint,
-    GetBootMessageEndpoint, GetUniqueIdEndpoint, ReadFlashEndpoint, WriteFlashEndpoint,
-};
-use bootloader_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
-use embassy_nrf::{
-    gpio::Output,
-    nvmc::Nvmc,
-    peripherals::USBD,
-    usb::{self, vbus_detect::HardwareVbusDetect},
-};
+use crate::handlers::{get_led, set_led, sleep_handler, unique_id, reboot_bootloader};
+use embassy_nrf::{gpio::Output, peripherals::USBD, usb::{self, vbus_detect::HardwareVbusDetect}};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use postcard_rpc::server::impls::embassy_usb_v0_3::{
-    dispatch_impl::{WireRxBuf, WireRxImpl, WireSpawnImpl, WireStorage, WireTxImpl, spawn_fn},
+    dispatch_impl::{spawn_fn, WireRxBuf, WireRxImpl, WireSpawnImpl, WireStorage, WireTxImpl},
     PacketBuffers,
 };
 use postcard_rpc::{
@@ -24,6 +12,10 @@ use postcard_rpc::{
     server::{Server, SpawnContext},
 };
 use static_cell::ConstStaticCell;
+use template_icd::{
+    GetLedEndpoint, GetUniqueIdEndpoint, SetLedEndpoint, SleepEndpoint, RebootToBootloader
+};
+use template_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
 
 /// Context contains the data that we will pass (as a mutable reference)
 /// to each endpoint or topic handler
@@ -32,9 +24,6 @@ pub struct Context {
     /// server. This should be unique per device.
     pub unique_id: u64,
     pub led: Output<'static>,
-    pub buf: &'static mut [u8],
-    pub nvmc: Nvmc<'static>,
-    pub boot_message: Option<BootMessage<'static>>,
 }
 
 impl SpawnContext for Context {
@@ -119,12 +108,10 @@ define_dispatch! {
         | EndpointTy                | kind      | handler                       |
         | ----------                | ----      | -------                       |
         | GetUniqueIdEndpoint       | blocking  | unique_id                     |
-        | ReadFlashEndpoint         | blocking  | read_flash                    |
-        | GetAppFlashInfoEndpoint   | blocking  | get_info                      |
-        | EraseFlashEndpoint        | async     | erase_flash                   |
-        | WriteFlashEndpoint        | blocking  | write_flash                   |
-        | GetBootMessageEndpoint    | blocking  | get_boot_message              |
-        | BootloadEndpoint          | spawn     | go_boot                       |
+        | SleepEndpoint             | spawn     | sleep_handler                 |
+        | SetLedEndpoint            | blocking  | set_led                       |
+        | GetLedEndpoint            | blocking  | get_led                       |
+        | RebootToBootloader        | spawn     | reboot_bootloader             |
     };
 
     // Topics IN are messages we receive from the client, but that we do not reply

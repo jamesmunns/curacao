@@ -1,36 +1,41 @@
 #![no_std]
 #![no_main]
 
-use app::AppTx;
-use defmt::info;
+use core::{fmt::Write, panic::PanicInfo};
+
+use bootloader_icd::scratch::BootMessage;
+use cortex_m::asm::bootload;
 use embassy_executor::Spawner;
 use embassy_nrf::{
-    bind_interrupts, config::{Config as NrfConfig, HfclkSource}, gpio::{Level, Output, OutputDrive}, nvmc::Nvmc, pac::FICR, peripherals::USBD, usb::{self, vbus_detect::HardwareVbusDetect}
+    bind_interrupts,
+    config::{Config as NrfConfig, HfclkSource},
+    gpio::{Level, Output, OutputDrive},
+    nvmc::Nvmc,
+    pac::FICR,
+    peripherals::USBD,
+    usb::{self, vbus_detect::HardwareVbusDetect},
 };
-use embassy_time::{Duration, Instant, Ticker, Timer};
+use embassy_time::{Instant, Timer};
 use embassy_usb::{Config, UsbDevice};
-use postcard_rpc::{
-    sender_fmt,
-    server::{Dispatch, Sender, Server},
-};
+use postcard_rpc::
+    server::{Dispatch, Server}
+;
 use static_cell::{ConstStaticCell, StaticCell};
+use storage::{app_sanity_check, clear_message, read_message, write_message, BOOT_FLASH_SIZE, MEM_SCRATCH_SIZE};
 
 bind_interrupts!(pub struct Irqs {
     USBD => usb::InterruptHandler<USBD>;
     CLOCK_POWER => usb::vbus_detect::InterruptHandler;
 });
 
-use {defmt_rtt as _, panic_probe as _};
-
 pub mod app;
 pub mod handlers;
 pub mod storage;
-use storage::APP_FLASH as _;
 
 fn usb_config(serial: &'static str) -> Config<'static> {
     let mut config = Config::new(0x16c0, 0x27DD);
     config.manufacturer = Some("OneVariable");
-    config.product = Some("poststation-nrf");
+    config.product = Some("poststation-nrfboot");
     config.serial_number = Some(serial);
 
     // Required for windows compatibility.
@@ -45,8 +50,42 @@ fn usb_config(serial: &'static str) -> Config<'static> {
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
+    // Load the boot message before we initialize the system
+    static BMSG_BUF: ConstStaticCell<[u8; MEM_SCRATCH_SIZE]> =
+        ConstStaticCell::new([0u8; MEM_SCRATCH_SIZE]);
+    let boot_msg = read_message(BMSG_BUF.take());
+    match &boot_msg {
+        Some(msg) => match msg {
+            BootMessage::JustBoot => {
+                // yolo
+                let msg = BootMessage::BootAttempted;
+                if write_message(&msg) {
+                    unsafe {
+                        bootload(BOOT_FLASH_SIZE as *const u32);
+                    }
+                }
+            },
+
+            // In any of these cases, we want to stay in the bootloader
+            BootMessage::StayInBootloader => {},
+            BootMessage::BootAttempted => {},
+            BootMessage::AppPanicked { .. } => {},
+            BootMessage::BootPanicked { .. } => {},
+        }
+        None => {
+            // Does the app look reasonable?
+            let msg = BootMessage::BootAttempted;
+            if app_sanity_check() && write_message(&msg) {
+                unsafe {
+                    bootload(BOOT_FLASH_SIZE as *const u32);
+                }
+            }
+        },
+    }
+    // Clear the message to avoid reading stale values
+    clear_message();
+
     // SYSTEM INIT
-    info!("Start");
     let mut config = NrfConfig::default();
     config.hfclk_source = HfclkSource::ExternalXtal;
     let p = embassy_nrf::init(Default::default());
@@ -81,7 +120,13 @@ async fn main(spawner: Spawner) {
     let led = Output::new(p.P0_13, Level::Low, OutputDrive::Standard);
     static SCRATCH: ConstStaticCell<[u8; 4096]> = ConstStaticCell::new([0u8; 4096]);
 
-    let context = app::Context { unique_id, led, buf: SCRATCH.take(), nvmc: Nvmc::new(p.NVMC) };
+    let context = app::Context {
+        unique_id,
+        led,
+        buf: SCRATCH.take(),
+        nvmc: Nvmc::new(p.NVMC),
+        boot_message: boot_msg,
+    };
 
     let (device, tx_impl, rx_impl) =
         app::STORAGE.init_poststation(driver, config, pbufs.tx_buf.as_mut_slice());
@@ -94,18 +139,15 @@ async fn main(spawner: Spawner) {
         dispatcher,
         vkk,
     );
-    let sender = server.sender();
     // We need to spawn the USB task so that USB messages are handled by
     // embassy-usb
     spawner.must_spawn(usb_task(device));
-    spawner.must_spawn(logging_task(sender));
 
     // Begin running!
     loop {
         // If the host disconnects, we'll return an error here.
         // If this happens, just wait until the host reconnects
         let _ = server.run().await;
-        defmt::info!("I/O error");
         Timer::after_millis(100).await;
     }
 }
@@ -116,22 +158,55 @@ pub async fn usb_task(mut usb: UsbDevice<'static, app::AppDriver>) {
     usb.run().await;
 }
 
-/// This task is a "sign of life" logger
-#[embassy_executor::task]
-pub async fn logging_task(sender: Sender<AppTx>) {
-    let mut ticker = Ticker::every(Duration::from_secs(3));
-    let start = Instant::now();
-    loop {
-        ticker.next().await;
-        let _ = sender_fmt!(sender, "Uptime: {:?}", start.elapsed()).await;
-    }
-}
-
-
 fn get_unique_id() -> u64 {
     let lower = FICR.deviceid(0).read() as u64;
     let upper = FICR.deviceid(1).read() as u64;
     // As a bootloader, let's provide a different unique_id so we don't have a
     // weird device history
     !((upper << 32) | lower)
+}
+
+#[panic_handler]
+fn panic_handler(info: &PanicInfo<'_>) -> ! {
+    let mut buf = [0u8; 512];
+    critical_section::with(|_cs| {
+        let mut writer = SliWrite { remain: &mut buf, written: 0, overflow: false };
+        writeln!(&mut writer, "{info}").ok();
+        let len = writer.written;
+        write_message(&BootMessage::BootPanicked { uptime: Instant::now().as_ticks(), reason: &buf[..len] });
+        cortex_m::peripheral::SCB::sys_reset();
+    });
+    // Unreachable
+    unreachable!()
+}
+
+struct SliWrite<'a> {
+    remain: &'a mut [u8],
+    written: usize,
+    overflow: bool,
+}
+
+/// Internal Write implementation to output the formatted panic string into RAM
+impl Write for SliWrite<'_> {
+    fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
+        if !self.remain.is_empty() {
+            // Get the data about the string that is being written now
+            let data = s.as_bytes();
+
+            // Take what we can from the input
+            let len = data.len().min(self.remain.len());
+            self.remain[..len].copy_from_slice(&data[..len]);
+
+            // shrink the buffer to the remaining free space
+            let window = core::mem::take(&mut self.remain);
+            let (_now, later) = window.split_at_mut(len);
+            self.remain = later;
+
+            // Update tracking data
+            self.overflow |= len < data.len();
+            self.written += len;
+        }
+
+        Ok(())
+    }
 }

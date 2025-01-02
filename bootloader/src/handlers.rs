@@ -1,12 +1,13 @@
 use core::{slice, sync::atomic::{compiler_fence, Ordering}};
 
+use cortex_m::{interrupt::disable, peripheral::SCB};
 use embassy_nrf::nvmc::Nvmc;
-use embassy_time::{Instant, Timer};
+use embassy_time::Timer;
 use embedded_storage::nor_flash::NorFlash;
 use postcard_rpc::{header::VarHeader, server::Sender};
-use bootloader_icd::{AppPartitionInfo, DataChunk, EraseError, EraseResult, FlashEraseCommand, FlashReadCommand, FlashWriteCommand, ReadError, ReadResult, WriteError, WriteResult};
+use bootloader_icd::{scratch::BootMessage, AppPartitionInfo, BootloadEndpoint, DataChunk, EraseError, EraseResult, FailedSanityCheck, FlashEraseCommand, FlashReadCommand, FlashWriteCommand, ReadError, ReadResult, WriteError, WriteResult};
 
-use crate::{app::{AppTx, Context, TaskContext}, storage::APP_FLASH};
+use crate::{app::{AppTx, Context, TaskContext}, storage::{app_sanity_check, write_message, APP_FLASH}};
 
 const CHUNK_LIMIT: usize = 512;
 
@@ -128,6 +129,24 @@ pub async fn erase_flash(context: &mut Context, _header: VarHeader, arg: FlashEr
         addr += Nvmc::ERASE_SIZE;
     }
     Ok(())
+}
+
+#[embassy_executor::task]
+pub async fn go_boot(_c: TaskContext, header: VarHeader, _arg: (), sender: Sender<AppTx>) {
+    let msg = BootMessage::JustBoot;
+    if !app_sanity_check() || !write_message(&msg) {
+        let _ = sender.reply::<BootloadEndpoint>(header.seq_no, &Err(FailedSanityCheck)).await;
+    } else {
+        let _ = sender.reply::<BootloadEndpoint>(header.seq_no, &Ok(())).await;
+        // Give some time for the message to be sent before rebooting
+        Timer::after_millis(50).await;
+        disable();
+        SCB::sys_reset();
+    }
+}
+
+pub fn get_boot_message(context: &mut Context, _header: VarHeader, _arg: ()) -> Option<BootMessage<'_>> {
+    context.boot_message.clone()
 }
 
 pub fn write_flash(context: &mut Context, _header: VarHeader, arg: FlashWriteCommand<'_>) -> WriteResult {

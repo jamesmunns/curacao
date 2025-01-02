@@ -2,7 +2,9 @@
 
 use postcard_rpc::{endpoints, topics, TopicDirection};
 use postcard_schema::Schema;
+use scratch::BootMessage;
 use serde::{Deserialize, Serialize};
+pub mod scratch;
 
 #[derive(Debug, Serialize, Deserialize, Schema)]
 pub struct AppPartitionInfo {
@@ -95,6 +97,17 @@ pub type ReadResult = Result<DataChunk, ReadError>;
 pub type EraseResult = Result<(), EraseError>;
 pub type WriteResult = Result<(), WriteError>;
 
+#[cfg(not(feature = "use-std"))]
+pub type OptBootMessage<'a> = Option<BootMessage<'a>>;
+
+#[cfg(feature = "use-std")]
+pub type OptBootMessage = Option<BootMessage>;
+
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct FailedSanityCheck;
+
+pub type BootResult = Result<(), FailedSanityCheck>;
+
 // ---
 
 // Endpoints spoken by our device
@@ -102,15 +115,18 @@ pub type WriteResult = Result<(), WriteError>;
 // GetUniqueIdEndpoint is mandatory, the others are examples
 endpoints! {
     list = ENDPOINT_LIST;
-    | EndpointTy                | RequestTy             | ResponseTy        | Path                          | Cfg                           |
-    | ----------                | ---------             | ----------        | ----                          | ---                           |
-    | GetUniqueIdEndpoint       | ()                    | u64               | "poststation/unique_id/get"   |                               |
-    | ReadFlashEndpoint         | FlashReadCommand      | ReadResult<'a>    | "bootloader/flash/read"       | cfg(not(feature = "use-std")) |
-    | ReadFlashEndpoint         | FlashReadCommand      | ReadResult        | "bootloader/flash/read"       | cfg(feature = "use-std")      |
-    | GetAppFlashInfoEndpoint   | ()                    | AppPartitionInfo  | "bootloader/flash/info"       |                               |
-    | EraseFlashEndpoint        | FlashEraseCommand     | EraseResult       | "bootloader/flash/erase"      |                               |
-    | WriteFlashEndpoint        | FlashWriteCommand<'a> | WriteResult       | "bootloader/flash/write"      | cfg(not(feature = "use-std")) |
-    | WriteFlashEndpoint        | FlashWriteCommand     | WriteResult       | "bootloader/flash/write"      | cfg(feature = "use-std")      |
+    | EndpointTy                | RequestTy             | ResponseTy            | Path                          | Cfg                           |
+    | ----------                | ---------             | ----------            | ----                          | ---                           |
+    | GetUniqueIdEndpoint       | ()                    | u64                   | "poststation/unique_id/get"   |                               |
+    | GetBootMessageEndpoint    | ()                    | OptBootMessage<'a>    | "bootloader/message/get"      | cfg(not(feature = "use-std")) |
+    | GetBootMessageEndpoint    | ()                    | OptBootMessage        | "bootloader/message/get"      | cfg(feature = "use-std")      |
+    | ReadFlashEndpoint         | FlashReadCommand      | ReadResult<'a>        | "bootloader/flash/read"       | cfg(not(feature = "use-std")) |
+    | ReadFlashEndpoint         | FlashReadCommand      | ReadResult            | "bootloader/flash/read"       | cfg(feature = "use-std")      |
+    | GetAppFlashInfoEndpoint   | ()                    | AppPartitionInfo      | "bootloader/flash/info"       |                               |
+    | EraseFlashEndpoint        | FlashEraseCommand     | EraseResult           | "bootloader/flash/erase"      |                               |
+    | WriteFlashEndpoint        | FlashWriteCommand<'a> | WriteResult           | "bootloader/flash/write"      | cfg(not(feature = "use-std")) |
+    | WriteFlashEndpoint        | FlashWriteCommand     | WriteResult           | "bootloader/flash/write"      | cfg(feature = "use-std")      |
+    | BootloadEndpoint          | ()                    | BootResult            | "bootloader/boot"             |                               |
 }
 
 // incoming topics handled by our device
