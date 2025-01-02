@@ -1,5 +1,5 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
-runner = "probe-rs run --chip nrf52840_xxAA --protocol swd"
+runner = "curaflash --app-serial=4AA1BC1CD58AD1F7"
 
 [build]
 target = "thumbv7em-none-eabihf"

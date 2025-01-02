@@ -30,10 +30,10 @@ endpoints! {
     | EndpointTy                | RequestTy     | ResponseTy            | Path                          |
     | ----------                | ---------     | ----------            | ----                          |
     | GetUniqueIdEndpoint       | ()            | u64                   | "poststation/unique_id/get"   |
-    | RebootToBootloader        | ()            | ()                    | "template/postboot/reset"     |
-    | SleepEndpoint             | SleepMillis   | SleptMillis           | "template/sleep"              |
-    | SetLedEndpoint            | LedState      | ()                    | "template/led/set"            |
-    | GetLedEndpoint            | ()            | LedState              | "template/led/get"            |
+    | RebootToBootloader        | ()            | ()                    | "curacao/postboot/reset"      |
+    | SleepEndpoint             | SleepMillis   | SleptMillis           | "curacao/sleep"               |
+    | SetLedEndpoint            | LedState      | ()                    | "curacao/led/set"             |
+    | GetLedEndpoint            | ()            | LedState              | "curacao/led/get"             |
 }
 
 // incoming topics handled by our device
