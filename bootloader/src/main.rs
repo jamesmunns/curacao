@@ -18,7 +18,7 @@ use postcard_rpc::{
     sender_fmt,
     server::{Dispatch, Sender, Server},
 };
-use static_cell::StaticCell;
+use static_cell::{ConstStaticCell, StaticCell};
 
 bind_interrupts!(pub struct Irqs {
     USBD => usb::InterruptHandler<USBD>;
@@ -29,6 +29,8 @@ use {defmt_rtt as _, panic_probe as _};
 
 pub mod app;
 pub mod handlers;
+pub mod storage;
+use storage::APP_FLASH as _;
 
 fn usb_config(serial: &'static str) -> Config<'static> {
     let mut config = Config::new(0x16c0, 0x27DD);
@@ -82,8 +84,9 @@ async fn main(spawner: Spawner) {
     let pbufs = app::PBUFS.take();
     let config = usb_config(ser_buf);
     let led = Output::new(p.P0_13, Level::Low, OutputDrive::Standard);
+    static SCRATCH: ConstStaticCell<[u8; 4096]> = ConstStaticCell::new([0u8; 4096]);
 
-    let context = app::Context { unique_id, led };
+    let context = app::Context { unique_id, led, buf: SCRATCH.take() };
 
     let (device, tx_impl, rx_impl) =
         app::STORAGE.init_poststation(driver, config, pbufs.tx_buf.as_mut_slice());
@@ -129,8 +132,11 @@ pub async fn logging_task(sender: Sender<AppTx>) {
     }
 }
 
+
 fn get_unique_id() -> u64 {
     let lower = FICR.deviceid(0).read() as u64;
     let upper = FICR.deviceid(1).read() as u64;
-    (upper << 32) | lower
+    // As a bootloader, let's provide a different unique_id so we don't have a
+    // weird device history
+    !((upper << 32) | lower)
 }

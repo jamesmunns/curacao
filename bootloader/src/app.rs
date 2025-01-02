@@ -1,6 +1,6 @@
 //! A basic postcard-rpc/poststation-compatible application
 
-use crate::handlers::{get_led, set_led, sleep_handler, unique_id};
+use crate::handlers::{unique_id, read_flash, get_info};
 use embassy_nrf::{gpio::Output, peripherals::USBD, usb::{self, vbus_detect::HardwareVbusDetect}};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use postcard_rpc::server::impls::embassy_usb_v0_3::{
@@ -13,7 +13,7 @@ use postcard_rpc::{
 };
 use static_cell::ConstStaticCell;
 use bootloader_icd::{
-    GetLedEndpoint, GetUniqueIdEndpoint, SetLedEndpoint, SleepEndpoint,
+    GetUniqueIdEndpoint, ReadFlashEndpoint, GetAppFlashInfoEndpoint,
 };
 use bootloader_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
 
@@ -24,6 +24,7 @@ pub struct Context {
     /// server. This should be unique per device.
     pub unique_id: u64,
     pub led: Output<'static>,
+    pub buf: &'static mut [u8],
 }
 
 impl SpawnContext for Context {
@@ -108,9 +109,8 @@ define_dispatch! {
         | EndpointTy                | kind      | handler                       |
         | ----------                | ----      | -------                       |
         | GetUniqueIdEndpoint       | blocking  | unique_id                     |
-        | SleepEndpoint             | spawn     | sleep_handler                 |
-        | SetLedEndpoint            | blocking  | set_led                       |
-        | GetLedEndpoint            | blocking  | get_led                       |
+        | ReadFlashEndpoint         | blocking  | read_flash                    |
+        | GetAppFlashInfoEndpoint   | blocking  | get_info                      |
     };
 
     // Topics IN are messages we receive from the client, but that we do not reply
