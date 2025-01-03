@@ -3,9 +3,7 @@ use std::{
 };
 
 use bootloader_icd::{
-    scratch::BootMessage, AppPartitionInfo, BootResult, BootloadEndpoint, DataChunk,
-    EraseFlashEndpoint, FlashEraseCommand, FlashReadCommand, FlashWriteCommand,
-    GetAppFlashInfoEndpoint, GetBootMessageEndpoint, ReadFlashEndpoint, WriteFlashEndpoint,
+    scratch::BootMessage, AppPartitionInfo, BootResult, BootloadEndpoint, DataChunk, EraseFlashEndpoint, FlashEraseCommand, FlashReadCommand, FlashWriteCommand, GetAppFlashInfoEndpoint, GetBootMessageEndpoint, ReadFlashEndpoint, RebootReasonEndpoint, WriteFlashEndpoint
 };
 use postcard_rpc::Endpoint;
 use poststation_sdk::{connect, SquadClient};
@@ -90,6 +88,10 @@ impl Bootloader {
             .map_err(|_| "Err: Failed Sanity Check".into())
     }
 
+    async fn reboot_reas(&self) -> Result<u32, String> {
+        self.proxy_ep::<RebootReasonEndpoint>(&()).await
+    }
+
     async fn dumpfmt(&self, start: u32, len: u32, chunk: u32) -> Result<String, String> {
         let mut out = String::new();
         let mut addr = start;
@@ -127,7 +129,9 @@ impl Bootloader {
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
-    const SERIAL: u64 = 0xB55E43E32A752E08;
+    // const SERIAL: u64 = 0xB55E43E32A752E08;
+    const SERIAL: u64 = 0xE58A068274AB2C5F;
+
     let client = connect("localhost:51837").await;
     let bl = Bootloader::new(client, SERIAL);
 
@@ -206,6 +210,13 @@ async fn main() -> Result<(), String> {
                     println!("Error: '{e}'");
                 }
             },
+            ["reason"] => {
+                let Ok(n) = bl.reboot_reas().await else {
+                    println!("Error");
+                    continue 'repl;
+                };
+                println!("reason: {n:08X}");
+            }
             ["erase", from, "to", to] => {
                 let Some(from) = hex_or_dec::<u32>(from) else {
                     println!("Error: invalid start");

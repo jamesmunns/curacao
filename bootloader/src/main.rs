@@ -11,17 +11,17 @@ use embassy_nrf::{
     config::{Config as NrfConfig, HfclkSource},
     gpio::{Level, Output, OutputDrive},
     nvmc::Nvmc,
-    pac::FICR,
+    pac::{power::regs::Resetreas, FICR, POWER},
     peripherals::USBD,
     usb::{self, vbus_detect::HardwareVbusDetect},
 };
 use embassy_time::{Instant, Timer};
 use embassy_usb::{Config, UsbDevice};
-use postcard_rpc::
-    server::{Dispatch, Server}
-;
+use postcard_rpc::server::{Dispatch, Server};
 use static_cell::{ConstStaticCell, StaticCell};
-use storage::{app_sanity_check, clear_message, read_message, write_message, BOOT_FLASH_SIZE, MEM_SCRATCH_SIZE};
+use storage::{
+    app_sanity_check, clear_message, read_message, write_message, BOOT_FLASH_SIZE, MEM_SCRATCH_SIZE,
+};
 
 bind_interrupts!(pub struct Irqs {
     USBD => usb::InterruptHandler<USBD>;
@@ -54,6 +54,8 @@ async fn main(spawner: Spawner) {
     static BMSG_BUF: ConstStaticCell<[u8; MEM_SCRATCH_SIZE]> =
         ConstStaticCell::new([0u8; MEM_SCRATCH_SIZE]);
     let boot_msg = read_message(BMSG_BUF.take());
+    let pin_reset = POWER.resetreas().read().resetpin();
+
     match &boot_msg {
         Some(msg) => match msg {
             BootMessage::JustBoot => {
@@ -64,23 +66,23 @@ async fn main(spawner: Spawner) {
                         bootload(BOOT_FLASH_SIZE as *const u32);
                     }
                 }
-            },
+            }
 
             // In any of these cases, we want to stay in the bootloader
-            BootMessage::StayInBootloader => {},
-            BootMessage::BootAttempted => {},
-            BootMessage::AppPanicked { .. } => {},
-            BootMessage::BootPanicked { .. } => {},
-        }
+            BootMessage::StayInBootloader => {}
+            BootMessage::BootAttempted => {}
+            BootMessage::AppPanicked { .. } => {}
+            BootMessage::BootPanicked { .. } => {}
+        },
         None => {
             // Does the app look reasonable?
             let msg = BootMessage::BootAttempted;
-            if app_sanity_check() && write_message(&msg) {
+            if !pin_reset && app_sanity_check() && write_message(&msg) {
                 unsafe {
                     bootload(BOOT_FLASH_SIZE as *const u32);
                 }
             }
-        },
+        }
     }
     // Clear the message to avoid reading stale values
     clear_message();
@@ -170,10 +172,17 @@ fn get_unique_id() -> u64 {
 fn panic_handler(info: &PanicInfo<'_>) -> ! {
     let mut buf = [0u8; 512];
     critical_section::with(|_cs| {
-        let mut writer = SliWrite { remain: &mut buf, written: 0, overflow: false };
+        let mut writer = SliWrite {
+            remain: &mut buf,
+            written: 0,
+            overflow: false,
+        };
         writeln!(&mut writer, "{info}").ok();
         let len = writer.written;
-        write_message(&BootMessage::BootPanicked { uptime: Instant::now().as_ticks(), reason: &buf[..len] });
+        write_message(&BootMessage::BootPanicked {
+            uptime: Instant::now().as_ticks(),
+            reason: &buf[..len],
+        });
         cortex_m::peripheral::SCB::sys_reset();
     });
     // Unreachable

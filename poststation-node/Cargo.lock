@@ -76,12 +76,6 @@ checksum = "2d7e60934ceec538daadb9d8432424ed043a904d8e0243f3c6446bce549a46ac"
 
 [[package]]
 name = "bitflags"
-version = "1.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
-
-[[package]]
-name = "bitflags"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
@@ -99,7 +93,6 @@ dependencies = [
 name = "bridge-icd"
 version = "0.1.0"
 dependencies = [
- "defmt",
  "heapless 0.8.0",
  "postcard",
  "postcard-rpc",
@@ -176,9 +169,9 @@ dependencies = [
 
 [[package]]
 name = "critical-section"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7059fff8937831a9ae6f0fe4d658ffabf58f2ca96aa9dec1c889f936f705f216"
+checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
 name = "crunchy"
@@ -222,48 +215,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "defmt"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a99dd22262668b887121d4672af5a64b238f026099f1a2a1b322066c9ecfe9e0"
-dependencies = [
- "bitflags 1.3.2",
- "defmt-macros",
-]
-
-[[package]]
-name = "defmt-macros"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3a9f309eff1f79b3ebdf252954d90ae440599c26c2c553fe87a2d17195f2dcb"
-dependencies = [
- "defmt-parser",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 2.0.94",
-]
-
-[[package]]
-name = "defmt-parser"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff4a5fefe330e8d7f31b16a318f9ce81000d8e35e69b93eae154d16d2278f70f"
-dependencies = [
- "thiserror",
-]
-
-[[package]]
-name = "defmt-rtt"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bab697b3dbbc1750b7c8b821aa6f6e7f2480b47a99bc057a2ed7b170ebef0c51"
-dependencies = [
- "critical-section",
- "defmt",
-]
-
-[[package]]
 name = "document-features"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -277,7 +228,6 @@ name = "embassy-embedded-hal"
 version = "0.2.0"
 source = "git+https://github.com/embassy-rs/embassy?rev=6789b5141f9280f1e3d7c6dfcab1a07fe4620b43#6789b5141f9280f1e3d7c6dfcab1a07fe4620b43"
 dependencies = [
- "defmt",
  "embassy-futures",
  "embassy-sync",
  "embassy-time",
@@ -296,7 +246,6 @@ source = "git+https://github.com/embassy-rs/embassy?rev=6789b5141f9280f1e3d7c6df
 dependencies = [
  "cortex-m",
  "critical-section",
- "defmt",
  "document-features",
  "embassy-executor-macros",
 ]
@@ -324,7 +273,6 @@ source = "git+https://github.com/embassy-rs/embassy?rev=6789b5141f9280f1e3d7c6df
 dependencies = [
  "cortex-m",
  "critical-section",
- "defmt",
  "num-traits",
 ]
 
@@ -348,12 +296,11 @@ name = "embassy-nrf"
 version = "0.2.0"
 source = "git+https://github.com/embassy-rs/embassy?rev=6789b5141f9280f1e3d7c6dfcab1a07fe4620b43#6789b5141f9280f1e3d7c6dfcab1a07fe4620b43"
 dependencies = [
- "bitflags 2.6.0",
+ "bitflags",
  "cfg-if",
  "cortex-m",
  "cortex-m-rt",
  "critical-section",
- "defmt",
  "document-features",
  "embassy-embedded-hal",
  "embassy-hal-internal",
@@ -381,7 +328,6 @@ source = "git+https://github.com/embassy-rs/embassy?rev=6789b5141f9280f1e3d7c6df
 dependencies = [
  "cfg-if",
  "critical-section",
- "defmt",
  "embedded-io-async",
  "futures-sink",
  "futures-util",
@@ -395,7 +341,6 @@ source = "git+https://github.com/embassy-rs/embassy?rev=6789b5141f9280f1e3d7c6df
 dependencies = [
  "cfg-if",
  "critical-section",
- "defmt",
  "document-features",
  "embassy-time-driver",
  "embedded-hal 0.2.7",
@@ -439,9 +384,6 @@ dependencies = [
 name = "embassy-usb-driver"
 version = "0.1.0"
 source = "git+https://github.com/embassy-rs/embassy?rev=6789b5141f9280f1e3d7c6dfcab1a07fe4620b43#6789b5141f9280f1e3d7c6dfcab1a07fe4620b43"
-dependencies = [
- "defmt",
-]
 
 [[package]]
 name = "embedded-hal"
@@ -814,16 +756,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
-name = "panic-probe"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4047d9235d1423d66cc97da7d07eddb54d4f154d6c13805c6d0793956f4f25b0"
-dependencies = [
- "cortex-m",
- "defmt",
-]
-
-[[package]]
 name = "pin-project"
 version = "1.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -887,7 +819,6 @@ dependencies = [
 name = "postcard-rpc"
 version = "0.11.3"
 dependencies = [
- "defmt",
  "embassy-executor",
  "embassy-futures",
  "embassy-sync",
@@ -931,8 +862,7 @@ dependencies = [
  "bridge-icd",
  "cortex-m",
  "cortex-m-rt",
- "defmt",
- "defmt-rtt",
+ "critical-section",
  "embassy-executor",
  "embassy-nrf",
  "embassy-sync",
@@ -941,36 +871,11 @@ dependencies = [
  "grounded",
  "mutex",
  "node-icd",
- "panic-probe",
  "postcard",
  "postcard-rpc",
  "postcard-schema",
  "serde",
  "static_cell",
-]
-
-[[package]]
-name = "proc-macro-error"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
-dependencies = [
- "proc-macro-error-attr",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "version_check",
-]
-
-[[package]]
-name = "proc-macro-error-attr"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
-dependencies = [
- "proc-macro2",
- "quote",
- "version_check",
 ]
 
 [[package]]
@@ -1193,26 +1098,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "thiserror"
-version = "1.0.63"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0342370b38b6a11b6cc11d6a805569958d54cfa061a29969c3b5ce2ea405724"
-dependencies = [
- "thiserror-impl",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.63"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4558b58466b9ad7ca0f102865eccc95938dca1a74a856f2b57b6629050da261"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.94",
 ]
 
 [[package]]

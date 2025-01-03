@@ -1,7 +1,7 @@
 use core::{slice, sync::atomic::{compiler_fence, Ordering}};
 
 use cortex_m::{interrupt::disable, peripheral::SCB};
-use embassy_nrf::nvmc::Nvmc;
+use embassy_nrf::{nvmc::Nvmc, pac::POWER};
 use embassy_time::Timer;
 use embedded_storage::nor_flash::NorFlash;
 use postcard_rpc::{header::VarHeader, server::Sender};
@@ -143,6 +143,10 @@ pub async fn go_boot(_c: TaskContext, header: VarHeader, _arg: (), sender: Sende
         disable();
         SCB::sys_reset();
     }
+}
+
+pub fn reboot_reason(context: &mut Context, _header: VarHeader, _arg: ()) -> u32 {
+    POWER.resetreas().read().0
 }
 
 pub fn get_boot_message(context: &mut Context, _header: VarHeader, _arg: ()) -> Option<BootMessage<'_>> {

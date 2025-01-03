@@ -127,6 +127,7 @@ endpoints! {
     | WriteFlashEndpoint        | FlashWriteCommand<'a> | WriteResult           | "bootloader/flash/write"      | cfg(not(feature = "use-std")) |
     | WriteFlashEndpoint        | FlashWriteCommand     | WriteResult           | "bootloader/flash/write"      | cfg(feature = "use-std")      |
     | BootloadEndpoint          | ()                    | BootResult            | "bootloader/boot"             |                               |
+    | RebootReasonEndpoint      | ()                    | u32                   | "bootloader/reset/reason"     |                               |
 }
 
 // incoming topics handled by our device

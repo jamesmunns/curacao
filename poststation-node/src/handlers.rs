@@ -1,5 +1,9 @@
-use crate::{app::Context, impls::EsbTx};
-use node_icd::{Dummy, LedState};
+use crate::{app::{AppTx, Context, TaskContext}, impls::EsbTx, smartled::smartled, storage::write_message};
+use bootloader_icd::scratch::BootMessage;
+use bridge_icd::RebootToBootloader;
+use cortex_m::peripheral::SCB;
+use embassy_time::Timer;
+use node_icd::{Dummy, InvalidIndex, LedState, SetRGBCommand, SetRGBResult, RGB8};
 use postcard_rpc::{header::VarHeader, server::Sender};
 
 /// This is an example of a BLOCKING handler.
@@ -22,13 +26,30 @@ pub fn get_led(context: &mut Context, _header: VarHeader, _arg: ()) -> LedState 
     }
 }
 
+pub async fn set_one_rgb(context: &mut Context, _header: VarHeader, arg: SetRGBCommand) -> SetRGBResult {
+    let pos = arg.pos as usize;
+    if pos > context.rgb_buf.len() {
+        return Err(InvalidIndex);
+    }
+    context.rgb_buf[pos] = arg.color;
+    let Context { smartled: pwm, rgb_buf, data_buf, .. } = context;
+    smartled(pwm, rgb_buf, data_buf).await;
+    Ok(())
+}
+
+pub async fn set_all_rgb(context: &mut Context, _header: VarHeader, arg: RGB8) {
+    context.rgb_buf.iter_mut().for_each(|c| *c = arg);
+    let Context { smartled: pwm, rgb_buf, data_buf, .. } = context;
+    smartled(pwm, rgb_buf, data_buf).await;
+}
+
 pub fn handle_dummy(
     _context: &mut Context,
     _header: VarHeader,
     arg: Dummy,
     _sender: &Sender<EsbTx>,
 ) {
-    defmt::info!("Handled dummy via postcard-rpc dispatch {:?}", arg.data)
+    // defmt::info!("Handled dummy via postcard-rpc dispatch {:?}", arg.data)
 }
 
 // pub async fn proxy_handler(context: &mut Context, _header: VarHeader, arg: ProxyMessage<'_>) -> ProxyResult {
@@ -74,3 +95,12 @@ pub fn handle_dummy(
 //     // Async handlers have to manually reply, as embassy doesn't support returning by value
 //     let _ = sender.reply::<SleepEndpoint>(header.seq_no, &SleptMillis { millis: start.elapsed().as_millis() as u16 }).await;
 // }
+
+#[embassy_executor::task]
+pub async fn reboot_bootloader(_c: TaskContext, header: VarHeader, _arg: (), sender: Sender<AppTx>) {
+    let msg = BootMessage::StayInBootloader;
+    write_message(&msg);
+    let _ = sender.reply::<RebootToBootloader>(header.seq_no, &()).await;
+    Timer::after_millis(100).await;
+    SCB::sys_reset();
+}

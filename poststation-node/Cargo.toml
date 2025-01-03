@@ -6,22 +6,22 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 # embassy-futures         = { version = "0.1.0" }
-# embassy-sync            = { version = "0.6.1", features = ["defmt"] }
-embassy-executor        = { version = "0.6.3", features = ["task-arena-size-32768", "arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"] }
-embassy-time            = { version = "0.3.0", features = ["defmt", "defmt-timestamp-uptime-us"] }
-embassy-nrf             = { version = "0.2.0", features = ["defmt", "nrf52840", "time-driver-rtc1", "gpiote", "unstable-pac", "time"] }
-# embassy-usb             = { version = "0.3.0", features = ["defmt"] }
-embassy-sync            = { version = "0.6.1", features = ["defmt"] }
-postcard-rpc            = { version = "0.11.0",   features = ["embassy-usb-0_3-server", "defmt"] }
+# embassy-sync            = { version = "0.6.1", features = [] }
+embassy-executor        = { version = "0.6.3", features = ["task-arena-size-32768", "arch-cortex-m", "executor-thread", "executor-interrupt", ] }
+embassy-time            = { version = "0.3.0", features = [] }
+embassy-nrf             = { version = "0.2.0", features = ["nrf52840", "time-driver-rtc1", "gpiote", "unstable-pac", "time"] }
+# embassy-usb             = { version = "0.3.0", features = [] }
+embassy-sync            = { version = "0.6.1", features = [] }
+postcard-rpc            = { version = "0.11.0",   features = ["embassy-usb-0_3-server", ] }
 postcard-schema         = { version = "0.2.0", features = ["derive"] }
 
-defmt = "0.3"
-defmt-rtt = "0.4"
+# defmt = "0.3"
+# defmt-rtt = "0.4"
 
 static_cell = { version = "2" }
 cortex-m = { version = "0.7.6", features = ["inline-asm", "critical-section-single-core"] }
 cortex-m-rt             = { version = "0.7.0", features = ["set-vtor"] }
-panic-probe = { version = "0.3", features = ["print-defmt"] }
+# panic-probe = { version = "0.3", features = ["print-defmt"] }
 mutex = "0.1.0"
 bridge-icd              = { path = "../bridge-icd" }
 node-icd                = { path = "../node-icd" }
@@ -29,6 +29,7 @@ postcard = "1.1.1"
 serde = { version = "1.0.217", default-features = false }
 grounded = "0.2.0"
 bootloader-icd          = { path = "../bootloader-icd" }
+critical-section = "1.2.0"
 
 [dependencies.esb]
 git = "https://github.com/jamesmunns/esb"

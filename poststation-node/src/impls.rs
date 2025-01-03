@@ -116,7 +116,7 @@ impl WireTx for EsbTx {
             panic!()
         };
         let Ok(used) = postcard::to_slice(msg, remain) else {
-            defmt::warn!("skipping message badser");
+            // defmt::warn!("skipping message badser");
             return Ok(());
         };
         let ttl = hdrb.len() + used.len();
@@ -188,7 +188,7 @@ impl WireTx for EsbTx {
     }
 
     async fn send_log_str(&self, _kkind: VarKeyKind, _s: &str) -> Result<(), Self::Error> {
-        defmt::error!("Not implemented");
+        // defmt::error!("Not implemented");
         Ok(())
     }
 
@@ -197,7 +197,7 @@ impl WireTx for EsbTx {
         _kkind: VarKeyKind,
         _a: core::fmt::Arguments<'a>,
     ) -> Result<(), Self::Error> {
-        defmt::error!("Not implemented");
+        // defmt::error!("Not implemented");
         Ok(())
     }
 }
@@ -245,7 +245,7 @@ impl WireRx for EsbRx {
                 continue;
             }
             let Some(e) = extract_topic2::<B2NTopic>(&grant) else {
-                defmt::warn!("WHAT THE HELL {=usize}", grant.len());
+                // defmt::warn!("WHAT THE HELL {=usize}", grant.len());
                 grant.release();
                 continue;
             };
@@ -265,7 +265,7 @@ impl WireRx for EsbRx {
                 }
                 Bridge2Node::Proxy { part, ttl_parts } => {
                     if ttl_parts == 0 {
-                        defmt::warn!("Bad frag {=u8}, {=u8}", part, ttl_parts);
+                        // defmt::warn!("Bad frag {=u8}, {=u8}", part, ttl_parts);
                         continue;
                     }
                     let to_fwd = if part == 0 && ttl_parts == 1 {

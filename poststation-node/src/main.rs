@@ -5,12 +5,13 @@ pub mod app;
 pub mod handlers;
 pub mod impls;
 pub mod storage;
+pub mod smartled;
 
 use core::{
-    ptr::null_mut,
-    sync::atomic::{AtomicBool, AtomicPtr, Ordering},
+    fmt::Write, ptr::null_mut, sync::atomic::{AtomicBool, AtomicPtr, Ordering}
 };
 
+use bootloader_icd::scratch::BootMessage;
 use bridge_icd::{
     extract_topic2, postcard_rpc::header::VarSeq, write_topic2, B2NTopic, Bridge2Node, N2BTopic,
     Node2Bridge,
@@ -20,7 +21,7 @@ use embassy_executor::Spawner;
 use embassy_nrf::{
     config::{Config, HfclkSource},
     interrupt,
-    pac::{Interrupt, FICR},
+    pac::{Interrupt, FICR}, pwm::{self, Prescaler, SequenceLoad, SequencePwm},
 };
 use embassy_nrf::{
     gpio::{Level, Output, OutputDrive},
@@ -35,9 +36,11 @@ use esb::{
 };
 use impls::{EsbRx, EsbTx};
 use mutex::{raw_impls::cs::CriticalSectionRawMutex, BlockingMutex};
+use node_icd::RGB8;
 use postcard_rpc::server::{Dispatch, Server};
-use static_cell::StaticCell;
-use {defmt_rtt as _, panic_probe as _};
+use smartled::{BUF_CT, LED_CT, RES};
+use static_cell::{ConstStaticCell, StaticCell};
+use storage::write_message;
 
 const MAX_PAYLOAD_SIZE: u8 = 64;
 
@@ -99,9 +102,9 @@ async fn main(spawner: Spawner) {
         NVIC::unmask(Interrupt::RADIO);
     }
     let serial = get_unique_id();
-    defmt::info!("Getting addr pipe");
+    // defmt::info!("Getting addr pipe");
     let pipe = get_pipe(&mut esb_app, serial).await;
-    defmt::info!("Got pipe addr {=u8}", pipe);
+    // defmt::info!("Got pipe addr {=u8}", pipe);
 
     let (tx, rx) = esb_app.split();
     let esb_tx = EsbTx::new(tx, serial, pipe);
@@ -109,6 +112,18 @@ async fn main(spawner: Spawner) {
 
     spawner.must_spawn(keepalive(esb_tx.clone()));
 
+    let mut config = pwm::Config::default();
+    config.sequence_load = SequenceLoad::Common;
+    config.prescaler = Prescaler::Div1;
+    config.max_duty = 20; // 1.25us (1s / 16Mhz * 20)
+    let pwm = SequencePwm::new_1ch(p.PWM0, p.P1_15, config).unwrap();
+
+    static RGB_BUF: ConstStaticCell<[RGB8; LED_CT]> = ConstStaticCell::new([
+        const { RGB8 { r: 0, g: 0, b: 0 } }; LED_CT
+    ]);
+    static DATA_BUF: ConstStaticCell<[u16; BUF_CT]> = ConstStaticCell::new([
+        0u16; BUF_CT
+    ]);
     // ///////////
     // ESB/RPC INIT
     // ///////////
@@ -116,7 +131,11 @@ async fn main(spawner: Spawner) {
     let context = app::Context {
         unique_id: get_unique_id(),
         led,
+        smartled: pwm,
+        rgb_buf: RGB_BUF.take(),
+        data_buf: DATA_BUF.take(),
     };
+    context.data_buf.iter_mut().for_each(|w| *w = RES);
     let dispatcher = app::MyApp::new(context, spawner.into());
     let vkk = dispatcher.min_key_len();
     let mut server: app::AppServer =
@@ -128,7 +147,7 @@ async fn main(spawner: Spawner) {
         // If the host disconnects, we'll return an error here.
         // If this happens, just wait until the host reconnects
         let _ = server.run().await;
-        defmt::info!("I/O error");
+        // defmt::info!("I/O error");
         Timer::after_millis(100).await;
     }
 
@@ -165,8 +184,6 @@ async fn keepalive(esb_tx: EsbTx) {
 }
 
 async fn get_pipe(esb_app: &mut EsbApp<1024, 1024>, unique_id: u64) -> u8 {
-    let mut ct_tx: u32 = 0;
-    let mut ct_err: u32 = 0;
     let mut ctr = 0u16;
     let mut pids = (0..4).cycle();
     loop {
@@ -181,9 +198,8 @@ async fn get_pipe(esb_app: &mut EsbApp<1024, 1024>, unique_id: u64) -> u8 {
             .check()
             .unwrap();
 
-        defmt::info!("Sending Init, tx: {=u32}, err: {=u32}", ct_tx, ct_err);
+        // defmt::info!("Sending Init, tx: {=u32}, err: {=u32}", ct_tx, ct_err);
 
-        ct_tx += 1;
         let mut packet = esb_app.grant_packet(esb_header).unwrap();
         let msg = Node2Bridge::Initialize {
             serial: unique_id.to_le_bytes(),
@@ -211,8 +227,6 @@ async fn get_pipe(esb_app: &mut EsbApp<1024, 1024>, unique_id: u64) -> u8 {
             }
             Timer::after_millis(250).await;
             response.release();
-        } else if ct_tx != 0 {
-            ct_err += 1;
         }
     }
 }
@@ -235,7 +249,7 @@ fn RADIO() {
         //     StatePTX::TransmitterWaitRetransmit => defmt::info!("TransmitterWaitRetransmit"),
         // }
     } else {
-        defmt::info!("MAX ATTEMPTS");
+        // defmt::info!("MAX ATTEMPTS");
     }
 }
 
@@ -252,4 +266,57 @@ fn get_unique_id() -> u64 {
     let lower = FICR.deviceid(0).read() as u64;
     let upper = FICR.deviceid(1).read() as u64;
     (upper << 32) | lower
+}
+
+use core::panic::PanicInfo;
+#[panic_handler]
+fn panic_handler(info: &PanicInfo<'_>) -> ! {
+    let mut buf = [0u8; 512];
+    critical_section::with(|_cs| {
+        let mut writer = SliWrite {
+            remain: &mut buf,
+            written: 0,
+            overflow: false,
+        };
+        writeln!(&mut writer, "{info}").ok();
+        let len = writer.written;
+        write_message(&BootMessage::BootPanicked {
+            uptime: Instant::now().as_ticks(),
+            reason: &buf[..len],
+        });
+        cortex_m::peripheral::SCB::sys_reset();
+    });
+    // Unreachable
+    unreachable!()
+}
+
+struct SliWrite<'a> {
+    remain: &'a mut [u8],
+    written: usize,
+    overflow: bool,
+}
+
+/// Internal Write implementation to output the formatted panic string into RAM
+impl Write for SliWrite<'_> {
+    fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
+        if !self.remain.is_empty() {
+            // Get the data about the string that is being written now
+            let data = s.as_bytes();
+
+            // Take what we can from the input
+            let len = data.len().min(self.remain.len());
+            self.remain[..len].copy_from_slice(&data[..len]);
+
+            // shrink the buffer to the remaining free space
+            let window = core::mem::take(&mut self.remain);
+            let (_now, later) = window.split_at_mut(len);
+            self.remain = later;
+
+            // Update tracking data
+            self.overflow |= len < data.len();
+            self.written += len;
+        }
+
+        Ok(())
+    }
 }

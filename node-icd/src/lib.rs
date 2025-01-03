@@ -26,6 +26,24 @@ pub struct Dummy {
     pub data: [u8; 16],
 }
 
+#[derive(Debug, Serialize, Deserialize, Schema, Copy, Clone)]
+pub struct RGB8 {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct SetRGBCommand {
+    pub pos: u16,
+    pub color: RGB8,
+}
+
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct InvalidIndex;
+
+pub type SetRGBResult = Result<(), InvalidIndex>;
+
 // ---
 
 // Endpoints spoken by our device
@@ -36,10 +54,12 @@ endpoints! {
     | EndpointTy                | RequestTy         | ResponseTy            | Path                          | Cfg                               |
     | ----------                | ---------         | ----------            | ----                          | ---                               |
     | GetUniqueIdEndpoint       | ()                | u64                   | "poststation/unique_id/get"   |                                   |
-    | RebootToPicoBoot          | ()                | ()                    | "template/picoboot/reset"     |                                   |
     | SleepEndpoint             | SleepMillis       | SleptMillis           | "template/sleep"              |                                   |
     | SetLedEndpoint            | LedState          | ()                    | "template/led/set"            |                                   |
     | GetLedEndpoint            | ()                | LedState              | "template/led/get"            |                                   |
+    | RebootToBootloader        | ()                | ()                    | "curacao/postboot/reset"      |                                   |
+    | SetOneRGBEndpoint         | SetRGBCommand     | SetRGBResult          | "curacao/rgb/one/set"         |                                   |
+    | SetAllRGBEndpoint         | RGB8              | ()                    | "curacao/rgb/all/set"         |                                   |
 }
 
 // incoming topics handled by our device

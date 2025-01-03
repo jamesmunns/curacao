@@ -153,6 +153,7 @@ impl FragBuf {
 
     pub fn handle_frag<'a>(&'a mut self, part: u8, ttl_parts: u8, data: &[u8]) -> Option<&'a [u8]> {
         if ttl_parts < 1 {
+            #[cfg(feature = "defmt")]
             defmt::error!("Why is this calling handle frag");
             self.status = FragStatus::Idle;
             return None;
@@ -164,11 +165,13 @@ impl FragBuf {
                 None
             },
             FragStatus::Idle => {
+                #[cfg(feature = "defmt")]
                 defmt::warn!("Missed first frag!");
                 None
             }
             FragStatus::Active { position, rx_frags, ttl_frags } => {
                 if rx_frags != part || ttl_frags != ttl_parts {
+                    #[cfg(feature = "defmt")]
                     defmt::warn!("Missed frag!");
                     if part == 0 {
                         self.data[..data.len()].copy_from_slice(data);
@@ -180,6 +183,7 @@ impl FragBuf {
                 }
                 let end = position + data.len();
                 let Some(range) = self.data.get_mut(position..end) else {
+                    #[cfg(feature = "defmt")]
                     defmt::warn!("Frag overflow!");
                     self.status = FragStatus::Idle;
                     return None;

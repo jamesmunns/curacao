@@ -99,7 +99,6 @@ dependencies = [
 name = "bridge-icd"
 version = "0.1.0"
 dependencies = [
- "defmt",
  "heapless 0.8.0",
  "postcard",
  "postcard-rpc",

@@ -1,8 +1,10 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
 # replace nRF82840_xxAA with your chip as listed in `probe-rs chip list`
 # runner = "probe-rs run --chip nRF52840_xxAA --probe 1366:1015:000683672242"
-runner = "curaflash --boot-serial=A88BA775E781639E"
+# runner = "curaflash --boot-serial=A88BA775E781639E"
+runner = "curaflash --boot-serial=E58A068274AB2C5F"
 # A88BA775E781639E
+# E58A068274AB2C5F
 
 [build]
 target = "thumbv7em-none-eabi"

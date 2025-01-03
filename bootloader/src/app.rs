@@ -1,11 +1,11 @@
 //! A basic postcard-rpc/poststation-compatible application
 
 use crate::handlers::{
-    erase_flash, get_boot_message, get_info, go_boot, read_flash, unique_id, write_flash,
+    erase_flash, get_boot_message, get_info, go_boot, read_flash, unique_id, write_flash, reboot_reason
 };
 use bootloader_icd::{
     scratch::BootMessage, BootloadEndpoint, EraseFlashEndpoint, GetAppFlashInfoEndpoint,
-    GetBootMessageEndpoint, GetUniqueIdEndpoint, ReadFlashEndpoint, WriteFlashEndpoint,
+    GetBootMessageEndpoint, GetUniqueIdEndpoint, ReadFlashEndpoint, WriteFlashEndpoint, RebootReasonEndpoint
 };
 use bootloader_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
 use embassy_nrf::{
@@ -125,6 +125,7 @@ define_dispatch! {
         | WriteFlashEndpoint        | blocking  | write_flash                   |
         | GetBootMessageEndpoint    | blocking  | get_boot_message              |
         | BootloadEndpoint          | spawn     | go_boot                       |
+        | RebootReasonEndpoint      | blocking  | reboot_reason                 |
     };
 
     // Topics IN are messages we receive from the client, but that we do not reply

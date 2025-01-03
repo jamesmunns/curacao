@@ -1,15 +1,14 @@
 //! A basic postcard-rpc/poststation-compatible application
 
-use embassy_nrf::gpio::Output;
+use embassy_nrf::{gpio::Output, peripherals::PWM0, pwm::SequencePwm};
 use node_icd::{
-    DummyTopic, GetLedEndpoint, GetUniqueIdEndpoint, SetLedEndpoint, ENDPOINT_LIST, TOPICS_IN_LIST,
-    TOPICS_OUT_LIST,
+    DummyTopic, GetLedEndpoint, GetUniqueIdEndpoint, RebootToBootloader, SetAllRGBEndpoint, SetLedEndpoint, SetOneRGBEndpoint, ENDPOINT_LIST, RGB8, TOPICS_IN_LIST, TOPICS_OUT_LIST
 };
 use postcard_rpc::{
     define_dispatch,
     server::{
         impls::embassy_usb_v0_3::{
-            dispatch_impl::{WireRxBuf, WireSpawnImpl},
+            dispatch_impl::{WireRxBuf, WireSpawnImpl, spawn_fn},
             PacketBuffers,
         },
         Server, SpawnContext,
@@ -17,7 +16,7 @@ use postcard_rpc::{
 };
 use static_cell::ConstStaticCell;
 
-use crate::handlers::{get_led, handle_dummy, set_led, unique_id};
+use crate::{handlers::{get_led, handle_dummy, reboot_bootloader, set_led, unique_id, set_all_rgb, set_one_rgb}, smartled::{BUF_CT, LED_CT}};
 use crate::impls::{EsbRx, EsbTx};
 
 /// Context contains the data that we will pass (as a mutable reference)
@@ -27,6 +26,9 @@ pub struct Context {
     /// server. This should be unique per device.
     pub unique_id: u64,
     pub led: Output<'static>,
+    pub smartled: SequencePwm<'static, PWM0>,
+    pub rgb_buf: &'static mut [RGB8; LED_CT],
+    pub data_buf: &'static mut [u16; BUF_CT],
     // pub esb_sender: bridge::Sender<1024>,
     // pub table: SMutex<Table>,
 }
@@ -106,6 +108,9 @@ define_dispatch! {
         | GetUniqueIdEndpoint       | blocking  | unique_id                     |
         | SetLedEndpoint            | blocking  | set_led                       |
         | GetLedEndpoint            | blocking  | get_led                       |
+        | RebootToBootloader        | spawn     | reboot_bootloader             |
+        | SetOneRGBEndpoint         | async     | set_one_rgb                   |
+        | SetAllRGBEndpoint         | async     | set_all_rgb                   |
     };
 
     // Topics IN are messages we receive from the client, but that we do not reply
