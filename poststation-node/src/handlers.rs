@@ -1,4 +1,9 @@
-use crate::{app::{AppTx, Context, TaskContext}, impls::EsbTx, smartled::smartled, storage::write_message};
+use crate::{
+    app::{AppTx, Context, TaskContext},
+    impls::EsbTx,
+    smartled::smartled,
+    storage::write_message,
+};
 use bootloader_icd::scratch::BootMessage;
 use bridge_icd::RebootToBootloader;
 use cortex_m::peripheral::SCB;
@@ -12,41 +17,55 @@ pub fn unique_id(context: &mut Context, _header: VarHeader, _arg: ()) -> u64 {
 }
 
 /// Also a BLOCKING handler
-pub fn set_led(context: &mut Context, _header: VarHeader, arg: LedState) {
+pub fn set_led_a(context: &mut Context, _header: VarHeader, arg: LedState) {
     match arg {
-        LedState::Off => context.led.set_high(),
-        LedState::On => context.led.set_low(),
+        LedState::Off => context.led_a.set_high(),
+        LedState::On => context.led_a.set_low(),
     }
 }
 
-pub fn get_led(context: &mut Context, _header: VarHeader, _arg: ()) -> LedState {
-    match context.led.is_set_high() {
-        true => LedState::Off,
-        false => LedState::On,
+pub fn set_led_b(context: &mut Context, _header: VarHeader, arg: LedState) {
+    match arg {
+        LedState::Off => context.led_b.set_high(),
+        LedState::On => context.led_b.set_low(),
     }
 }
 
-pub async fn set_one_rgb(context: &mut Context, _header: VarHeader, arg: SetRGBCommand) -> SetRGBResult {
+pub async fn set_one_rgb(
+    context: &mut Context,
+    _header: VarHeader,
+    arg: SetRGBCommand,
+) -> SetRGBResult {
     let pos = arg.pos as usize;
     if pos > context.rgb_buf.len() {
         return Err(InvalidIndex);
     }
     context.rgb_buf[pos] = arg.color;
-    let Context { smartled: pwm, rgb_buf, data_buf, .. } = context;
+    let Context {
+        smartled: pwm,
+        rgb_buf,
+        data_buf,
+        ..
+    } = context;
     smartled(pwm, rgb_buf, data_buf).await;
     Ok(())
 }
 
 pub async fn set_all_rgb(context: &mut Context, _header: VarHeader, arg: RGB8) {
     context.rgb_buf.iter_mut().for_each(|c| *c = arg);
-    let Context { smartled: pwm, rgb_buf, data_buf, .. } = context;
+    let Context {
+        smartled: pwm,
+        rgb_buf,
+        data_buf,
+        ..
+    } = context;
     smartled(pwm, rgb_buf, data_buf).await;
 }
 
 pub fn handle_dummy(
     _context: &mut Context,
     _header: VarHeader,
-    arg: Dummy,
+    _arg: Dummy,
     _sender: &Sender<EsbTx>,
 ) {
     // defmt::info!("Handled dummy via postcard-rpc dispatch {:?}", arg.data)
@@ -97,7 +116,12 @@ pub fn handle_dummy(
 // }
 
 #[embassy_executor::task]
-pub async fn reboot_bootloader(_c: TaskContext, header: VarHeader, _arg: (), sender: Sender<AppTx>) {
+pub async fn reboot_bootloader(
+    _c: TaskContext,
+    header: VarHeader,
+    _arg: (),
+    sender: Sender<AppTx>,
+) {
     let msg = BootMessage::StayInBootloader;
     write_message(&msg);
     let _ = sender.reply::<RebootToBootloader>(header.seq_no, &()).await;

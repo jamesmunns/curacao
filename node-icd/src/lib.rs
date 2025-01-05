@@ -55,8 +55,8 @@ endpoints! {
     | ----------                | ---------         | ----------            | ----                          | ---                               |
     | GetUniqueIdEndpoint       | ()                | u64                   | "poststation/unique_id/get"   |                                   |
     | SleepEndpoint             | SleepMillis       | SleptMillis           | "template/sleep"              |                                   |
-    | SetLedEndpoint            | LedState          | ()                    | "template/led/set"            |                                   |
-    | GetLedEndpoint            | ()                | LedState              | "template/led/get"            |                                   |
+    | SetLedAEndpoint           | LedState          | ()                    | "curacao/led/a/set"           |                                   |
+    | SetLedBEndpoint           | LedState          | ()                    | "curacao/led/b/set"           |                                   |
     | RebootToBootloader        | ()                | ()                    | "curacao/postboot/reset"      |                                   |
     | SetOneRGBEndpoint         | SetRGBCommand     | SetRGBResult          | "curacao/rgb/one/set"         |                                   |
     | SetAllRGBEndpoint         | RGB8              | ()                    | "curacao/rgb/all/set"         |                                   |

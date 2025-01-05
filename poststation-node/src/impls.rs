@@ -8,14 +8,14 @@ use bridge_icd::{
     },
     write_topic2, B2NTopic, Bridge2Node, FragBuf, N2BTopic, Node2Bridge,
 };
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use embassy_sync::mutex::Mutex;
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use esb::{
     app::{EsbAppReceiver, EsbAppSender},
     EsbHeader,
 };
 use serde::Serialize;
 use static_cell::{ConstStaticCell, StaticCell};
+
 struct EsbTxInner {
     sender: EsbAppSender<1024>,
     ctr: u16,

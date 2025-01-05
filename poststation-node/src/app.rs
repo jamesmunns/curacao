@@ -2,13 +2,14 @@
 
 use embassy_nrf::{gpio::Output, peripherals::PWM0, pwm::SequencePwm};
 use node_icd::{
-    DummyTopic, GetLedEndpoint, GetUniqueIdEndpoint, RebootToBootloader, SetAllRGBEndpoint, SetLedEndpoint, SetOneRGBEndpoint, ENDPOINT_LIST, RGB8, TOPICS_IN_LIST, TOPICS_OUT_LIST
+    DummyTopic, GetUniqueIdEndpoint, RebootToBootloader, SetAllRGBEndpoint,
+    SetLedAEndpoint, SetLedBEndpoint, SetOneRGBEndpoint, ENDPOINT_LIST, RGB8, TOPICS_IN_LIST, TOPICS_OUT_LIST,
 };
 use postcard_rpc::{
     define_dispatch,
     server::{
         impls::embassy_usb_v0_3::{
-            dispatch_impl::{WireRxBuf, WireSpawnImpl, spawn_fn},
+            dispatch_impl::{spawn_fn, WireRxBuf, WireSpawnImpl},
             PacketBuffers,
         },
         Server, SpawnContext,
@@ -16,8 +17,13 @@ use postcard_rpc::{
 };
 use static_cell::ConstStaticCell;
 
-use crate::{handlers::{get_led, handle_dummy, reboot_bootloader, set_led, unique_id, set_all_rgb, set_one_rgb}, smartled::{BUF_CT, LED_CT}};
-use crate::impls::{EsbRx, EsbTx};
+use crate::{
+    handlers::{
+        handle_dummy, reboot_bootloader, set_all_rgb, set_led_a, set_led_b, set_one_rgb, unique_id,
+    },
+    impls::{EsbRx, EsbTx},
+    smartled::{BUF_CT, LED_CT},
+};
 
 /// Context contains the data that we will pass (as a mutable reference)
 /// to each endpoint or topic handler
@@ -29,6 +35,8 @@ pub struct Context {
     pub smartled: SequencePwm<'static, PWM0>,
     pub rgb_buf: &'static mut [RGB8; LED_CT],
     pub data_buf: &'static mut [u16; BUF_CT],
+    pub led_a: Output<'static>,
+    pub led_b: Output<'static>,
     // pub esb_sender: bridge::Sender<1024>,
     // pub table: SMutex<Table>,
 }
@@ -106,8 +114,8 @@ define_dispatch! {
         | EndpointTy                | kind      | handler                       |
         | ----------                | ----      | -------                       |
         | GetUniqueIdEndpoint       | blocking  | unique_id                     |
-        | SetLedEndpoint            | blocking  | set_led                       |
-        | GetLedEndpoint            | blocking  | get_led                       |
+        | SetLedAEndpoint           | blocking  | set_led_a                     |
+        | SetLedBEndpoint           | blocking  | set_led_b                     |
         | RebootToBootloader        | spawn     | reboot_bootloader             |
         | SetOneRGBEndpoint         | async     | set_one_rgb                   |
         | SetAllRGBEndpoint         | async     | set_all_rgb                   |

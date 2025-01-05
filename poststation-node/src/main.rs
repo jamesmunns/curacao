@@ -4,11 +4,13 @@
 pub mod app;
 pub mod handlers;
 pub mod impls;
-pub mod storage;
 pub mod smartled;
+pub mod storage;
 
 use core::{
-    fmt::Write, ptr::null_mut, sync::atomic::{AtomicBool, AtomicPtr, Ordering}
+    fmt::Write,
+    ptr::null_mut,
+    sync::atomic::{AtomicBool, AtomicPtr, Ordering},
 };
 
 use bootloader_icd::scratch::BootMessage;
@@ -21,7 +23,8 @@ use embassy_executor::Spawner;
 use embassy_nrf::{
     config::{Config, HfclkSource},
     interrupt,
-    pac::{Interrupt, FICR}, pwm::{self, Prescaler, SequenceLoad, SequencePwm},
+    pac::{Interrupt, FICR},
+    pwm::{self, Prescaler, SequenceLoad, SequencePwm},
 };
 use embassy_nrf::{
     gpio::{Level, Output, OutputDrive},
@@ -118,15 +121,21 @@ async fn main(spawner: Spawner) {
     config.max_duty = 20; // 1.25us (1s / 16Mhz * 20)
     let pwm = SequencePwm::new_1ch(p.PWM0, p.P1_15, config).unwrap();
 
-    static RGB_BUF: ConstStaticCell<[RGB8; LED_CT]> = ConstStaticCell::new([
-        const { RGB8 { r: 0, g: 0, b: 0 } }; LED_CT
-    ]);
-    static DATA_BUF: ConstStaticCell<[u16; BUF_CT]> = ConstStaticCell::new([
-        0u16; BUF_CT
-    ]);
+    static RGB_BUF: ConstStaticCell<[RGB8; LED_CT]> =
+        ConstStaticCell::new([const { RGB8 { r: 0, g: 0, b: 0 } }; LED_CT]);
+    static DATA_BUF: ConstStaticCell<[u16; BUF_CT]> = ConstStaticCell::new([0u16; BUF_CT]);
     // ///////////
     // ESB/RPC INIT
     // ///////////
+
+    // P0.02: Dial or button?
+    // P0.28: Dial or button?
+    // P0.29: Dial or button?
+    // P0.05: Dial or button?
+
+    // P0.04: Green LED
+    // P0.03: Red LED
+
     let pbufs = app::PBUFS.take();
     let context = app::Context {
         unique_id: get_unique_id(),
@@ -134,6 +143,8 @@ async fn main(spawner: Spawner) {
         smartled: pwm,
         rgb_buf: RGB_BUF.take(),
         data_buf: DATA_BUF.take(),
+        led_a: Output::new(p.P0_03, Level::High, OutputDrive::Standard),
+        led_b: Output::new(p.P0_04, Level::High, OutputDrive::Standard),
     };
     context.data_buf.iter_mut().for_each(|w| *w = RES);
     let dispatcher = app::MyApp::new(context, spawner.into());
