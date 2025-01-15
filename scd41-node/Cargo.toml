@@ -1,0 +1,55 @@
+[package]
+edition = "2021"
+name = "scd41-node"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+# embassy-futures         = { version = "0.1.0" }
+# embassy-sync            = { version = "0.6.1", features = [] }
+embassy-executor        = { version = "0.6.3", features = ["task-arena-size-32768", "arch-cortex-m", "executor-thread", "executor-interrupt", ] }
+embassy-time            = { version = "0.3.0", features = [] }
+embassy-nrf             = { version = "0.2.0", features = ["nrf52840", "time-driver-rtc1", "gpiote", "unstable-pac", "time"] }
+# embassy-usb             = { version = "0.3.0", features = [] }
+embassy-sync            = { version = "0.6.1", features = [] }
+postcard-rpc            = { version = "0.11.0",   features = ["embassy-usb-0_3-server", ] }
+postcard-schema         = { version = "0.2.0", features = ["derive"] }
+
+# defmt = "0.3"
+# defmt-rtt = "0.4"
+
+static_cell = { version = "2" }
+cortex-m = { version = "0.7.6", features = ["inline-asm", "critical-section-single-core"] }
+cortex-m-rt             = { version = "0.7.0", features = ["set-vtor"] }
+# panic-probe = { version = "0.3", features = ["print-defmt"] }
+mutex = "0.1.0"
+bridge-icd              = { path = "../bridge-icd" }
+postcard = "1.1.1"
+serde = { version = "1.0.217", default-features = false }
+grounded = "0.2.0"
+bootloader-icd          = { path = "../bootloader-icd" }
+critical-section = "1.2.0"
+
+scd41-node-icd            = { path = "../scd41-node-icd" }
+libscd = { version = "0.4.0", features = ["async", "scd41", "defmt"] }
+smart-leds = "0.4.0"
+
+[dependencies.esb]
+git = "https://github.com/jamesmunns/esb"
+rev = "a0d94d0de5bce2cf45d5a396497570737241cc1c"
+
+
+[patch.crates-io]
+maitake-sync            = { git = "https://github.com/jamesmunns/mycelium/", rev = "3d70f02bcc0de0e0cc0602ddc2b4aee7a34c5201" }
+embassy-futures         = { git = "https://github.com/embassy-rs/embassy",   rev = "6789b5141f9280f1e3d7c6dfcab1a07fe4620b43" }
+embassy-sync            = { git = "https://github.com/embassy-rs/embassy",   rev = "6789b5141f9280f1e3d7c6dfcab1a07fe4620b43" }
+embassy-executor        = { git = "https://github.com/embassy-rs/embassy",   rev = "6789b5141f9280f1e3d7c6dfcab1a07fe4620b43" }
+embassy-time            = { git = "https://github.com/embassy-rs/embassy",   rev = "6789b5141f9280f1e3d7c6dfcab1a07fe4620b43" }
+embassy-nrf             = { git = "https://github.com/embassy-rs/embassy",   rev = "6789b5141f9280f1e3d7c6dfcab1a07fe4620b43" }
+embassy-usb             = { git = "https://github.com/embassy-rs/embassy",   rev = "6789b5141f9280f1e3d7c6dfcab1a07fe4620b43" }
+embassy-embedded-hal = { git = "https://github.com/embassy-rs/embassy", rev = "6789b5141f9280f1e3d7c6dfcab1a07fe4620b43" }
+embassy-time-driver  = { git = "https://github.com/embassy-rs/embassy", rev = "6789b5141f9280f1e3d7c6dfcab1a07fe4620b43" }
+embassy-usb-driver   = { git = "https://github.com/embassy-rs/embassy", rev = "6789b5141f9280f1e3d7c6dfcab1a07fe4620b43" }
+# embedded-io             = { git = "https://github.com/embassy-rs/embassy",   rev = "6789b5141f9280f1e3d7c6dfcab1a07fe4620b43" }
+# embedded-io-async       = { git = "https://github.com/embassy-rs/embassy",   rev = "6789b5141f9280f1e3d7c6dfcab1a07fe4620b43" }
+postcard-rpc = { path = "/Users/james/personal/postcard-rpc/source/postcard-rpc" }

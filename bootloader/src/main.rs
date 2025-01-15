@@ -4,12 +4,12 @@
 use core::{fmt::Write, panic::PanicInfo};
 
 use bootloader_icd::scratch::BootMessage;
-use cortex_m::asm::bootload;
+use cortex_m::{asm::bootload, peripheral::SCB};
 use embassy_executor::Spawner;
 use embassy_nrf::{
     bind_interrupts,
     config::{Config as NrfConfig, HfclkSource},
-    gpio::{Level, Output, OutputDrive},
+    gpio::{Input, Level, Output, OutputDrive, Pull},
     nvmc::Nvmc,
     pac::{power::regs::Resetreas, FICR, POWER},
     peripherals::USBD,
@@ -54,7 +54,10 @@ async fn main(spawner: Spawner) {
     static BMSG_BUF: ConstStaticCell<[u8; MEM_SCRATCH_SIZE]> =
         ConstStaticCell::new([0u8; MEM_SCRATCH_SIZE]);
     let boot_msg = read_message(BMSG_BUF.take());
-    let pin_reset = POWER.resetreas().read().resetpin();
+    let reset_reas = POWER.resetreas().read();
+    let pin_reset = reset_reas.resetpin();
+    // write reasons back to clear
+    POWER.resetreas().write_value(reset_reas);
 
     match &boot_msg {
         Some(msg) => match msg {
@@ -130,6 +133,9 @@ async fn main(spawner: Spawner) {
         boot_message: boot_msg,
     };
 
+    let boot_pin = Input::new(p.P0_29, Pull::Up);
+    spawner.must_spawn(button_boot(boot_pin));
+
     let (device, tx_impl, rx_impl) =
         app::STORAGE.init_poststation(driver, config, pbufs.tx_buf.as_mut_slice());
     let dispatcher = app::MyApp::new(context, spawner.into());
@@ -151,6 +157,19 @@ async fn main(spawner: Spawner) {
         // If this happens, just wait until the host reconnects
         let _ = server.run().await;
         Timer::after_millis(100).await;
+    }
+}
+
+#[embassy_executor::task]
+pub async fn button_boot(mut p: Input<'static>) {
+    Timer::after_secs(3).await;
+    loop {
+        p.wait_for_falling_edge().await;
+        let msg = BootMessage::JustBoot;
+        if app_sanity_check() && write_message(&msg) {
+            cortex_m::interrupt::disable();
+            SCB::sys_reset();
+        }
     }
 }
 

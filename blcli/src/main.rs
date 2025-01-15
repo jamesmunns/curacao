@@ -130,7 +130,9 @@ impl Bootloader {
 #[tokio::main]
 async fn main() -> Result<(), String> {
     // const SERIAL: u64 = 0xB55E43E32A752E08;
-    const SERIAL: u64 = 0xE58A068274AB2C5F;
+    // const SERIAL: u64 = 0xE58A068274AB2C5F;
+    const SERIAL: u64 = 0xBD8B1FDF144D2D81;
+
 
     let client = connect("localhost:51837").await;
     let bl = Bootloader::new(client, SERIAL);
