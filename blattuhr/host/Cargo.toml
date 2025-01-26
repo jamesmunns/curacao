@@ -1,0 +1,15 @@
+[package]
+name = "host"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+postcard = { version = "1.1.1", features = ["use-std"] }
+serde = { version = "1.0.217", features = ["derive"] }
+typst = "0.12.0"
+typst-render = "0.12.0"
+template-icd = { path = "../icd", features = ["use-std"] }
+poststation-sdk = "0.4.0"
+tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread", "time"] }
+ttf-parser = "0.25.1"
+chrono = "0.4.39"
