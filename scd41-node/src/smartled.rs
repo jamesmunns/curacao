@@ -71,5 +71,5 @@ pub async fn smartled(
 
     let sequences = SingleSequencer::new(pwm, data_buf, seq_config.clone());
     sequences.start(SingleSequenceMode::Times(1)).unwrap();
-    Timer::after_micros((30 * LED_CT + 1000) as u64).await;
+    Timer::after_micros((30 * LED_CT + 50) as u64).await;
 }

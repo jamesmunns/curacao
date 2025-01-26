@@ -41,7 +41,7 @@ use mutex::{raw_impls::cs::CriticalSectionRawMutex, BlockingMutex};
 use postcard_rpc::server::{Dispatch, Sender, Server};
 use scd41_node_icd::{Scd41Reading, ScdReadingTopic};
 use smart_leds::{colors, gamma};
-use smartled::{BUF_CT, LED_CT, RGB8};
+use smartled::{BUF_CT, LED_CT, RES, RGB8};
 use static_cell::{ConstStaticCell, StaticCell};
 use storage::write_message;
 
@@ -232,13 +232,13 @@ async fn main(spawner: Spawner) {
 pub async fn sensor_task(
     mut scd: Scd41<Twim<'static, TWISPI0>, Delay>,
     sender: Sender<AppTx>,
-    mut pwm: SequencePwm<'static, PWM0>,
+    _pwm: SequencePwm<'static, PWM0>,
 ) {
-    static RGB_BUF: ConstStaticCell<[RGB8; LED_CT]> =
-        ConstStaticCell::new([const { RGB8 { r: 0, g: 0, b: 0 } }; LED_CT]);
-    static DATA_BUF: ConstStaticCell<[u16; BUF_CT]> = ConstStaticCell::new([0u16; BUF_CT]);
-    let rgb_buf = RGB_BUF.take();
-    let data_buf = DATA_BUF.take();
+    // static RGB_BUF: ConstStaticCell<[RGB8; LED_CT]> =
+    //     ConstStaticCell::new([const { RGB8 { r: 0, g: 0, b: 0 } }; LED_CT]);
+    // static DATA_BUF: ConstStaticCell<[u16; BUF_CT]> = ConstStaticCell::new([RES; BUF_CT]);
+    // let rgb_buf = RGB_BUF.take();
+    // let data_buf = DATA_BUF.take();
 
 
     // When re-programming, the controller will be restarted,
@@ -252,12 +252,12 @@ pub async fn sensor_task(
 
     // let mut color = 0u8;
     let mut ctr = 0u16;
-    let mut iir = 0.0f32;
+    // let mut iir = 0.0f32;
 
     // tick every 100ms, 5000ms typical update
-    let ratio = 100.0f32 / 5000.0f32;
+    // let ratio = 100.0f32 / 5000.0f32;
     let mut ticker = Ticker::every(Duration::from_millis(100));
-    let mut last = 0.0f32;
+    // let mut last = 0.0f32;
     loop {
         ticker.next().await;
         ctr = ctr.wrapping_add(1);
@@ -268,7 +268,7 @@ pub async fn sensor_task(
                 humi_pct: m.humidity,
                 co2_ppm: m.co2,
             };
-            last = m.co2 as f32;
+            // last = m.co2 as f32;
 
             let _ = sender
                 .publish::<ScdReadingTopic>(VarSeq::Seq2(ctr), &reading)
@@ -276,41 +276,41 @@ pub async fn sensor_task(
         }
 
 
-        fn lerp(min: u16, max: u16, act: u16, minc: smart_leds::RGB8, maxc: smart_leds::RGB8) -> smart_leds::RGB8 {
-            let act = act.clamp(min, max);
-            let range = (max - min) as f32;
-            let offset = (act - min) as f32;
-            let pct = offset / range;
+        // fn lerp(min: u16, max: u16, act: u16, minc: smart_leds::RGB8, maxc: smart_leds::RGB8) -> smart_leds::RGB8 {
+        //     let act = act.clamp(min, max);
+        //     let range = (max - min) as f32;
+        //     let offset = (act - min) as f32;
+        //     let pct = offset / range;
 
-            let shift = |l: u8, r: u8| {
-                let a = (r as f32) * pct;
-                let b = (l as f32) * (1.0 - pct);
-                (a + b) as u8
-            };
+        //     let shift = |l: u8, r: u8| {
+        //         let a = (r as f32) * pct;
+        //         let b = (l as f32) * (1.0 - pct);
+        //         (a + b) as u8
+        //     };
 
-            smart_leds::RGB8 {
-                r: shift(minc.r, maxc.r),
-                g: shift(minc.g, maxc.g),
-                b: shift(minc.b, maxc.b),
-            }
-        }
+        //     smart_leds::RGB8 {
+        //         r: shift(minc.r, maxc.r),
+        //         g: shift(minc.g, maxc.g),
+        //         b: shift(minc.b, maxc.b),
+        //     }
+        // }
 
-        // Update iir filter
-        iir = (iir * (1.0 - ratio)) + (last * ratio);
-        let iir_now = iir as u16;
+        // // Update iir filter
+        // iir = (iir * (1.0 - ratio)) + (last * ratio);
+        // let iir_now = iir as u16;
 
-        let color = match iir_now {
-            0..400 => lerp(0, 400, iir_now, colors::BLACK, colors::PURPLE),
-            400..600 => lerp(400, 600, iir_now, colors::PURPLE, colors::BLUE),
-            600..800 => lerp(600, 800, iir_now, colors::BLUE, colors::GREEN),
-            800..1000 => lerp(800, 1000, iir_now, colors::GREEN, colors::YELLOW),
-            1000..1200 => lerp(1000, 1200, iir_now, colors::YELLOW, colors::ORANGE),
-            1200..1400 => lerp(1200, 1400, iir_now, colors::ORANGE, colors::RED),
-            1400.. => lerp(1400, 2000, iir_now, colors::RED, colors::WHITE),
-        };
-        let color = gamma([color].into_iter()).next().unwrap();
-        rgb_buf[0] = RGB8 { r: color.r, g: color.g, b: color.b };
-        smartled::smartled(&mut pwm, rgb_buf, data_buf).await;
+        // let color = match iir_now {
+        //     0..400 => lerp(0, 400, iir_now, colors::BLACK, colors::PURPLE),
+        //     400..600 => lerp(400, 600, iir_now, colors::PURPLE, colors::BLUE),
+        //     600..800 => lerp(600, 800, iir_now, colors::BLUE, colors::GREEN),
+        //     800..1000 => lerp(800, 1000, iir_now, colors::GREEN, colors::YELLOW),
+        //     1000..1200 => lerp(1000, 1200, iir_now, colors::YELLOW, colors::ORANGE),
+        //     1200..1400 => lerp(1200, 1400, iir_now, colors::ORANGE, colors::RED),
+        //     1400.. => lerp(1400, 2000, iir_now, colors::RED, colors::WHITE),
+        // };
+        // let color = gamma([color].into_iter()).next().unwrap();
+        // rgb_buf[0] = RGB8 { r: color.r, g: color.g, b: color.b };
+        // smartled::smartled(&mut pwm, rgb_buf, data_buf).await;
     }
 }
 
